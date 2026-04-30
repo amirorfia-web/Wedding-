@@ -1,20 +1,28 @@
 import NextAuth from "next-auth"
 import Google from "next-auth/providers/google"
 import { DrizzleAdapter } from "@auth/drizzle-adapter"
-import { db } from "@/lib/db"
-import { accounts, sessions, users, verificationTokens, couples, coupleMembers } from "@/lib/schema"
+import { getDb } from "@/lib/db"
+import { accounts, sessions, users, verificationTokens, coupleMembers } from "@/lib/schema"
 import { eq } from "drizzle-orm"
 
 const ALLOWED_EMAILS = ["amir.orfia@gmail.com", "rojda.yapici@gmail.com"]
 const COUPLE_ID = "couple-amir-rojda"
 
+function createAdapter() {
+  try {
+    return DrizzleAdapter(getDb(), {
+      usersTable: users,
+      accountsTable: accounts,
+      sessionsTable: sessions,
+      verificationTokensTable: verificationTokens,
+    })
+  } catch {
+    return undefined
+  }
+}
+
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  adapter: DrizzleAdapter(db, {
-    usersTable: users,
-    accountsTable: accounts,
-    sessionsTable: sessions,
-    verificationTokensTable: verificationTokens,
-  }),
+  adapter: createAdapter(),
   providers: [
     Google({
       clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -25,8 +33,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     async signIn({ user }) {
       if (!ALLOWED_EMAILS.includes(user.email ?? "")) return false
 
-      // Lier l'utilisateur au couple s'il ne l'est pas déjà
       if (user.id) {
+        const db = getDb()
         const existing = await db
           .select()
           .from(coupleMembers)

@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
-import { scenarios, coupleMembers } from "@/lib/schema"
+import { getDb } from "@/lib/db"
+import { scenarios } from "@/lib/schema"
 import { eq } from "drizzle-orm"
+
+export const dynamic = "force-dynamic"
 
 const COUPLE_ID = "couple-amir-rojda"
 
@@ -16,7 +18,7 @@ export async function GET() {
   const session = await assertAuth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const rows = await db
+  const rows = await getDb()
     .select()
     .from(scenarios)
     .where(eq(scenarios.coupleId, COUPLE_ID))
@@ -36,7 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Champs manquants" }, { status: 400 })
   }
 
-  const [created] = await db.insert(scenarios).values({
+  const [created] = await getDb().insert(scenarios).values({
     coupleId: COUPLE_ID,
     nom,
     region,

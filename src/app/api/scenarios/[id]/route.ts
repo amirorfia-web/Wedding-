@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import { scenarios } from "@/lib/schema"
 import { eq, and } from "drizzle-orm"
+
+export const dynamic = "force-dynamic"
 
 const COUPLE_ID = "couple-amir-rojda"
 
@@ -20,20 +22,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const body = await req.json()
   const { nom, region, lieuNom, nbInvites, niveau, coutEstime, couleur, statut, notes } = body
 
-  const [updated] = await db
+  const [updated] = await getDb()
     .update(scenarios)
-    .set({
-      nom,
-      region,
-      lieuNom: lieuNom ?? "",
-      nbInvites,
-      niveau,
-      coutEstime,
-      couleur,
-      statut,
-      notes,
-      updatedAt: new Date(),
-    })
+    .set({ nom, region, lieuNom: lieuNom ?? "", nbInvites, niveau, coutEstime, couleur, statut, notes, updatedAt: new Date() })
     .where(and(eq(scenarios.id, id), eq(scenarios.coupleId, COUPLE_ID)))
     .returning()
 
@@ -48,7 +39,7 @@ export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params
 
-  await db
+  await getDb()
     .delete(scenarios)
     .where(and(eq(scenarios.id, id), eq(scenarios.coupleId, COUPLE_ID)))
 

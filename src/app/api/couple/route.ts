@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from "next/server"
 import { auth } from "@/auth"
-import { db } from "@/lib/db"
+import { getDb } from "@/lib/db"
 import { couples } from "@/lib/schema"
 import { eq } from "drizzle-orm"
+
+export const dynamic = "force-dynamic"
 
 const COUPLE_ID = "couple-amir-rojda"
 
@@ -16,7 +18,7 @@ export async function GET() {
   const session = await assertAuth()
   if (!session) return NextResponse.json({ error: "Non autorisé" }, { status: 401 })
 
-  const [couple] = await db
+  const [couple] = await getDb()
     .select()
     .from(couples)
     .where(eq(couples.id, COUPLE_ID))
@@ -34,7 +36,7 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: "Budget invalide" }, { status: 400 })
   }
 
-  const [updated] = await db
+  const [updated] = await getDb()
     .update(couples)
     .set({ budget })
     .where(eq(couples.id, COUPLE_ID))
