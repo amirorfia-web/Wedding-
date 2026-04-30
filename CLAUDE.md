@@ -45,43 +45,65 @@ App perso pour aider Amir et Rojda à planifier leur mariage. **Aujourd'hui : ph
 ### DB Neon
 - Tables créées manuellement via SQL Editor Neon (le sandbox n'a pas accès réseau à Neon)
 - Couple pré-créé : `INSERT INTO couples (id, budget) VALUES ('couple-amir-rojda', 20000)`
-- DATABASE_URL : dans .env.local (ne pas commiter)
+- DATABASE_URL : dans `.env.local` uniquement (ne JAMAIS commiter — voir alerte sécurité ci-dessous)
+
+## 🚨 ALERTE SÉCURITÉ (à traiter dès que possible)
+
+Le `DATABASE_URL` complet (avec mot de passe `npg_GIW2AEFdT4wa`) a été commité en clair dans `scripts/migrate.mjs` sur GitHub. Le mot de passe est désormais **public**. À faire :
+
+1. Aller sur https://console.neon.tech/ → Settings → Reset password
+2. Mettre le nouveau `DATABASE_URL` dans `.env.local` et dans Vercel → Environment Variables
+3. (Optionnel mais propre) Réécrire l'historique git pour supprimer la fuite : `git filter-repo --path scripts/migrate.mjs --invert-paths` puis force-push
+
+Le script `scripts/migrate.mjs` a été corrigé pour lire `process.env.DATABASE_URL`.
 
 ## Branche de développement
 
-Toujours développer sur `claude/wedding-planning-app-1eRVJ`. Ne pas merger sur main sans validation explicite d'Amir.
+Branche active actuelle : `claude/setup-wedding-app-BGwSF` (côté Claude Code web).
+Branche historique mentionnée précédemment : `claude/wedding-planning-app-1eRVJ`.
+Production sur Vercel : à confirmer via dashboard.
+Ne pas merger sur main sans validation explicite d'Amir.
 
-## 🐛 BUG ACTUEL — Vercel 404 NOT_FOUND
+## 🐛 BUG Vercel 404 NOT_FOUND — guide de résolution
 
-### Symptôme
-`https://wedding-ten-topaz-12.vercel.app` retourne `404: NOT_FOUND / Code: NOT_FOUND` même après promotion du déploiement "Ready".
+### Endpoint de diagnostic ajouté
+`GET /api/health` est public (proxy.ts l'exclut de l'auth) et retourne `{ ok: true, env: { database, authSecret, authUrl, google } }` sans dépendre de la DB ni d'OAuth. Utiliser pour isoler le problème :
 
-### Ce qui a été essayé
-- Build local : ✅ passe sans erreur
-- Build sans env vars : ✅ passe (fix lazy db appliqué)
-- Promotion du dernier déploiement "Ready" : 404 persiste
-- Preview URL `wedding-4t90m6m2u-amir-ora-pulse.vercel.app` : aussi 404
+```
+curl -i https://wedding-ten-topaz-12.vercel.app/api/health
+```
 
-### Hypothèses à vérifier en nouvelle session
-1. **Settings Vercel → General** : vérifier Framework Preset = "Next.js", Root Directory = vide, Build Command = `npm run build`
-2. **Settings Vercel → Git** : vérifier Production Branch = `claude/wedding-planning-app-1eRVJ`
-3. Le 404 est au niveau Vercel routing (pas Next.js) — l'ID `fra1::xxx` indique un problème infrastructure, pas applicatif
-4. Possible : le projet Vercel a été créé avec un Root Directory incorrect (ex: `Wedding-`)
-5. Possible : env vars manquantes ou mal copiées côté Vercel
+- **404** → Vercel ne route pas vers la fonction → problème projet Vercel (Root Dir, Production Branch, project disconnecté de GitHub)
+- **500** → Le code tourne mais une env var critique est manquante → vérifier Environment Variables
+- **200** → Le déploiement est sain ; si la home `/` 404, c'est uniquement le proxy auth qui redirige
 
-### Variables d'environnement Vercel à vérifier
-Ces 5 variables doivent être présentes dans Settings → Environment Variables :
-- `DATABASE_URL` — connection string Neon (dans .env.local)
-- `AUTH_SECRET` — clé NextAuth (dans .env.local)
-- `AUTH_URL` — `https://wedding-ten-topaz-12.vercel.app`
-- `GOOGLE_CLIENT_ID` — dans Google Cloud Console
-- `GOOGLE_CLIENT_SECRET` — dans Google Cloud Console
+### Plan de résolution recommandé (le plus rapide)
+
+Le projet Vercel actuel est dans un état corrompu (404 même après promotion). **Solution la plus fiable : recréer le projet.**
+
+1. **Vercel** → Project `wedding` → Settings → Advanced → **Delete Project**
+2. **Vercel** → Add New → Project → Import depuis GitHub `amirorfia-web/Wedding-`
+3. Pendant l'import :
+   - **Framework preset** : Next.js (auto-détecté)
+   - **Root Directory** : `./` (vide, NE PAS mettre `Wedding-`)
+   - **Production Branch** : choisir la branche active (ex `main` ou `claude/setup-wedding-app-BGwSF`)
+   - **Environment Variables** : copier les 5 vars (voir `.env.example`)
+4. Deploy → attendre Ready → tester `https://<nouveau-projet>.vercel.app/api/health`
+5. Si `/api/health` répond 200 → mettre à jour `AUTH_URL` avec l'URL finale + ajouter le redirect Google OAuth `https://<nouveau-projet>.vercel.app/api/auth/callback/google`
+6. Redéployer
+
+### Si on veut tenter de réparer l'existant avant suppression
+
+1. **Settings → Git** : vérifier que le repo est bien connecté ; si "Disconnected", reconnecter
+2. **Settings → General** : Framework = Next.js, Root Directory vide, Node 20+
+3. **Deployments** → cliquer le dernier "Ready" → "..." → **Redeploy** (sans cocher "use existing build cache")
+4. Si toujours 404 : passer à la suppression/recréation
 
 ## Prochaine session — par où reprendre
 
-1. **Résoudre le bug Vercel 404** (voir section ci-dessus)
-2. Vérifier les settings Vercel (Root Directory, Framework Preset, Production Branch)
-3. Une fois l'app accessible en prod → tester le login Google des deux comptes
+1. **Rotation du mot de passe Neon** (alerte sécurité)
+2. **Résoudre Vercel** via recréation projet (cf. plan ci-dessus)
+3. Une fois `/api/health` qui répond 200 sur l'URL prod → tester le login Google des deux comptes
 4. Enchaîner sur **Sprint 3 — Moteur de priorités & arbitrages**
 
 ## Skills installés (`.claude/skills/`)

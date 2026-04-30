@@ -1,16 +1,19 @@
 import { neon } from "@neondatabase/serverless"
 import { readFileSync } from "fs"
 
-const DATABASE_URL = "postgresql://neondb_owner:npg_GIW2AEFdT4wa@ep-winter-field-amtxsmoi-pooler.c-5.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
+const DATABASE_URL = process.env.DATABASE_URL
+if (!DATABASE_URL) {
+  console.error("❌ DATABASE_URL is not set. Source .env.local or export it before running.")
+  process.exit(1)
+}
 
 const sql = neon(DATABASE_URL)
 
 const migration = readFileSync("./drizzle/0000_lumpy_amphibian.sql", "utf-8")
 
-// Split on drizzle's statement separator
 const statements = migration
   .split("--> statement-breakpoint")
-  .map(s => s.trim())
+  .map((s) => s.trim())
   .filter(Boolean)
 
 console.log(`Running ${statements.length} statements...`)
